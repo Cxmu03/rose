@@ -9,6 +9,8 @@ start:
     call verify_cpuid
     call verify_long_mode
 
+    call setup_page_tables
+
     ; Prints "Hello from rose os"
     mov dword [0xb8000], 0x0F650F48
     mov dword [0xb8004], 0x0F6C0F6C
@@ -20,6 +22,32 @@ start:
     mov dword [0xb801C], 0x0F200F65
     mov dword [0xb8020], 0x0F730F6F
     hlt
+
+; Sets up identity paging for the first GiB of memory
+setup_page_tables:
+    ; Maps the p3 table as the first entry of the p4 table
+    mov eax, p3_table
+    or eax, 0b11        ; Page bits for present and writable
+    mov [p4_table], eax
+
+    ; Maps the p2 table as the first entry of the p3 table
+    mov eax, p2_table
+    or eax ,0b11        ; Page bits for present and writable
+    mov [p3_table], eax
+
+    xor ecx, ecx
+
+.map_p2_table:
+    mov eax, 0x200000             ; 2 MiB
+    mul ecx                       ; ecx-th entry, eax is implied as operand and destination
+    or eax, 0b10000011            ; Present + writable + huge
+    mov [p2_table + ecx * 8], eax ; map ecx-th entry
+
+    inc ecx
+    cmp ecx, 512
+    jne .map_p2_table
+
+    ret
 
 ; Verifies that was started by a multiboot compliant bootloader
 verify_multiboot:
@@ -39,6 +67,7 @@ error:
     mov dword [0xb8008], 0x4f204f20             ; Prints two spaces
     xor ecx, ecx                                ; Set counter to 0
     xor ebx, ebx                                ; Set register for current character to 0
+; TODO: refactor with mul instruction
 .print_loop:
     cmp byte [eax + ecx], 0                     ; Check if null terminator is found
     je .end                                     ; End of string reached
@@ -111,6 +140,13 @@ error_no_long_mode:
     db "Your CPU is too old for long mode", 0
 
 section .bss
+align 4096
+p4_table:
+    resb 4096
+p3_table:
+    resb 4096
+p2_table:
+    resb 4096
 stack_bottom:
     resb 64
 stack_top:
