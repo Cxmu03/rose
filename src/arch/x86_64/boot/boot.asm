@@ -10,6 +10,7 @@ start:
     call verify_long_mode
 
     call setup_page_tables
+    call enable_paging
 
     ; Prints "Hello from rose os"
     mov dword [0xb8000], 0x0F650F48
@@ -22,6 +23,32 @@ start:
     mov dword [0xb801C], 0x0F200F65
     mov dword [0xb8020], 0x0F730F6F
     hlt
+
+enable_paging:
+    ; Load the address of the p4 table into the cr3 register
+    ; so that it can be used by the cpu
+    mov eax, p4_table
+    ; by settings the 8th bit in eax
+    mov cr3, eax
+
+    ; Enable the PEA flag in the cr4 register
+    mov eax, cr4
+    or eax, (1 << 5)
+    mov cr4, eax
+
+    ; Load IA32_EFER MSR and enable long mode
+    ; by setting the 8th bit in eax
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, (1 << 8)
+    wrmsr
+
+    ; Enable paging
+    mov eax, cr0
+    or eax, (1 << 31)
+    mov cr0, eax
+
+    ret
 
 ; Sets up identity paging for the first GiB of memory
 setup_page_tables:
