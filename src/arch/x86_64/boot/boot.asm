@@ -1,4 +1,5 @@
 global start
+extern long_mode_start
 
 section .text
 bits 32
@@ -12,17 +13,9 @@ start:
     call setup_page_tables
     call enable_paging
 
-    ; Prints "Hello from rose os"
-    mov dword [0xb8000], 0x0F650F48
-    mov dword [0xb8004], 0x0F6C0F6C
-    mov dword [0xb8008], 0x0F200F6F
-    mov dword [0xb800C], 0x0F720F66
-    mov dword [0xb8010], 0x0F6D0F6F
-    mov dword [0xb8014], 0x0F720F20
-    mov dword [0xb8018], 0x0F730F6F
-    mov dword [0xb801C], 0x0F200F65
-    mov dword [0xb8020], 0x0F730F6F
-    hlt
+    lgdt [gdt64.pointer]
+
+    jmp gdt64.code:long_mode_start
 
 enable_paging:
     ; Load the address of the p4 table into the cr3 register
@@ -157,14 +150,6 @@ verify_long_mode:
     mov eax, error_no_long_mode
     jmp error
 
-error_not_multiboot_compliant:
-    db "The bootloader used to load the image is not multiboot compliant", 0
-
-error_no_cpuid_present:
-    db "CPUID is not supported on your CPU", 0
-
-error_no_long_mode:
-    db "Your CPU is too old for long mode", 0
 
 section .bss
 align 4096
@@ -177,3 +162,21 @@ p2_table:
 stack_bottom:
     resb 64
 stack_top:
+
+section .rodata
+error_not_multiboot_compliant:
+    db "The bootloader used to load the image is not multiboot compliant", 0
+
+error_no_cpuid_present:
+    db "CPUID is not supported on your CPU", 0
+
+error_no_long_mode:
+    db "Your CPU is too old for long mode", 0
+
+gdt64:
+    dq 0                                             ; Null entry
+.code: equ $ - gdt64                                 ; Label as offset into gdt
+    dq (1 << 43) | (1 << 44) | (1 << 47) | (1 << 53) ; Code segment
+.pointer:
+    dw $ - gdt64 - 1                                 ; Size of gdt
+    dq gdt64                                         ; Address of gdt
