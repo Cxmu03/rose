@@ -3,6 +3,8 @@ global long_mode_start
 section .text
 bits 64
 long_mode_start:
+    call reset_segment_registers
+
     ; Prints "Hello from rose os"
     mov rax, 0x0F6C0F6C0F650F48
     mov qword [0xb8000], rax
@@ -15,3 +17,14 @@ long_mode_start:
     mov dword [0xb8020], 0x0F730F6F
 
     hlt
+
+reset_segment_registers:
+    ; load 0 into all data segment registers
+    mov ax, 0
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ret
