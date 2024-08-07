@@ -1,6 +1,26 @@
 global start
 extern long_mode_start
 
+%define GDT_ENTRY_EXECUTABLE (1 << 43)
+%define GDT_ENTRY_CODE_SEGMENT (1 << 44)
+%define GDT_ENTRY_PRESENT (1 << 47)
+%define GDT_ENTRY_LONG_SEGMENT (1 << 53)
+
+%define PAGE_SIZE 4096
+
+%define VGA_START 0xb8000
+
+%define NEXT_VGA(counter_register, offset) ((2 * counter_register) + VGA_START + offset)
+
+; Fills the next entry of the VGA buffer
+; Only for use in the error method
+; Parameter 1: color
+; Parameter 2: ascii value
+%macro SET_NEXT_VGA 2
+    mov byte [NEXT_VGA(ecx, 0x0c)], %2
+    mov byte [NEXT_VGA(ecx, 0x0c) + 1], %1
+%endmacro
+
 section .text
 bits 32
 start:
@@ -82,9 +102,9 @@ verify_multiboot:
 ; Arguments:
 ;   eax: Error message
 error:
-    mov dword [0xb8000], 0x4f524f45             ; Prints Er
-    mov dword [0xb8004], 0x4f3a4f52             ; Prints r:
-    mov dword [0xb8008], 0x4f204f20             ; Prints two spaces
+    mov dword [VGA_START], 0x4f524f45           ; Prints Er
+    mov dword [VGA_START + 0x04], 0x4f3a4f52    ; Prints r:
+    mov dword [VGA_START + 0x08], 0x4f204f20    ; Prints two spaces
     xor ecx, ecx                                ; Set counter to 0
     xor ebx, ebx                                ; Set register for current character to 0
 ; TODO: refactor with mul instruction
@@ -92,8 +112,7 @@ error:
     cmp byte [eax + ecx], 0                     ; Check if null terminator is found
     je .end                                     ; End of string reached
     mov bl, byte [eax + ecx]                    ; Move the current character to bl
-    mov byte [(2 * ecx) + 0xb800c], bl          ; Move the character to the VGA buffer
-    mov byte [(2 * ecx) + 0xb800c + 1], 0x4f    ; Set the background to red
+    SET_NEXT_VGA 0x4f, bl
     inc ecx                                     ; Increment counter
     jmp .print_loop
 .end:
@@ -152,13 +171,13 @@ verify_long_mode:
 
 
 section .bss
-align 4096
+align PAGE_SIZE
 p4_table:
-    resb 4096
+    resb PAGE_SIZE
 p3_table:
-    resb 4096
+    resb PAGE_SIZE
 p2_table:
-    resb 4096
+    resb PAGE_SIZE
 stack_bottom:
     resb 64
 stack_top:
@@ -176,7 +195,11 @@ error_no_long_mode:
 gdt64:
     dq 0                                             ; Null entry
 .code: equ $ - gdt64                                 ; Label as offset into gdt
-    dq (1 << 43) | (1 << 44) | (1 << 47) | (1 << 53) ; Code segment
+    ; Kernel code segment
+    dq GDT_ENTRY_EXECUTABLE | \
+       GDT_ENTRY_CODE_SEGMENT | \
+       GDT_ENTRY_PRESENT | \
+       GDT_ENTRY_LONG_SEGMENT
 .pointer:
     dw $ - gdt64 - 1                                 ; Size of gdt
     dq gdt64                                         ; Address of gdt
