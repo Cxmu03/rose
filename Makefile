@@ -35,7 +35,7 @@ $(kernel): kernel $(roselib) $(asm_objects) $(linker_script)
 	@ld -n -T $(linker_script) -o $(kernel) $(asm_objects) $(roselib)
 
 kernel:
-	@RUST_TARGET_PATH=$(shell pwd)/targets /home/marek/.cargo/bin/cargo build --target x86_64-unknown-rose
+	@RUST_TARGET_PATH=$(shell pwd)/targets /home/marek/.cargo/bin/cargo build --target $(target)
 
 build/arch/$(arch)/%.o: $(arch_dir)/%.asm
 	mkdir -p $(shell dirname $@)
