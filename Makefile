@@ -1,8 +1,11 @@
 arch ?= x86_64
+target := $(arch)-unknown-rose
 kernel := build/kernel-rose-$(arch).bin
 iso := build/rose-$(arch).iso
+roselib := target/$(target)/debug/librose.a
 
 arch_dir := src/arch/$(arch)/boot
+targets_dir := targets
 
 linker_script := $(arch_dir)/linker.ld
 grub_cfg := $(arch_dir)/grub/grub.cfg
@@ -28,8 +31,11 @@ $(iso): $(kernel) $(grub_cfg)
 	@grub-mkrescue -o $(iso) build/iso 2> /dev/null
 	@rm -r build/iso
 
-$(kernel): $(asm_objects) $(linker_script)
-	@ld -n -T $(linker_script) -o $(kernel) $(asm_objects)
+$(kernel): kernel $(roselib) $(asm_objects) $(linker_script)
+	@ld -n -T $(linker_script) -o $(kernel) $(asm_objects) $(roselib)
+
+kernel:
+	@RUST_TARGET_PATH=$(shell pwd)/targets /home/marek/.cargo/bin/cargo build --target x86_64-unknown-rose
 
 build/arch/$(arch)/%.o: $(arch_dir)/%.asm
 	mkdir -p $(shell dirname $@)

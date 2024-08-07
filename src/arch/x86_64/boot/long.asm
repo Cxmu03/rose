@@ -1,5 +1,7 @@
 global long_mode_start
 
+extern kernel_main
+
 section .text
 bits 64
 long_mode_start:
@@ -15,6 +17,8 @@ long_mode_start:
     mov rax, 0x0F200F650F730F6F
     mov qword [0xb8018], rax
     mov dword [0xb8020], 0x0F730F6F
+
+    jmp kernel_main
 
     hlt
 

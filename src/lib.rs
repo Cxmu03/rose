@@ -9,6 +9,12 @@ fn panic(_: &PanicInfo) -> ! {
 }
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
+pub extern fn kernel_main() -> ! {
+    unsafe {
+        let vga_start: *mut u16 = 0xb8000 as *mut u16;
+
+        *vga_start = 0x4F48;
+    }
+
     loop {}
 }
