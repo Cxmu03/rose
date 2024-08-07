@@ -20,8 +20,6 @@ long_mode_start:
 
     jmp kernel_main
 
-    hlt
-
 reset_segment_registers:
     ; load 0 into all data segment registers
     mov ax, 0
