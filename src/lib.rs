@@ -3,36 +3,29 @@
 
 use core::panic::PanicInfo;
 
+use vga::*;
+
+mod vga;
+
 #[panic_handler]
 fn panic(_: &PanicInfo) -> ! {
     loop {}
 }
 
-fn clear_vga_buf() {
-    for i in 0..25*80 {
-        let vga_char_ptr = (0xb8000 + 2 * i) as *mut u16;
-
-        unsafe {
-            *vga_char_ptr = 0;
-        }
-    }
-}
-
 #[no_mangle]
-pub extern fn kernel_main() -> ! {
-    let hello = b"Hello from rose";
-    let color_byte = 0x1f; // white foreground, blue background
+pub extern "C" fn kernel_main() -> ! {
+    let mut vga_buffer = VGA_BUFFER_LOCK.write();
+    vga_buffer.clear();
 
-    clear_vga_buf();
+    let message: &[u8] = b"Hello from Rose";
 
-    let mut hello_colored = [color_byte; 30];
-    for (i, char_byte) in hello.into_iter().enumerate() {
-        hello_colored[i*2] = *char_byte;
+    let row = (VGA_HEIGHT / 2) - 1;
+    let col = ((VGA_WIDTH - message.len()) / 2) - 1;
+
+    for (index, character) in message.iter().enumerate() {
+        let vga_char = VgaChar::new(*character, VgaColor::Blue, VgaColor::White);
+        *vga_buffer.get_mut(col + index, row) = vga_char;
     }
-
-    // write `Hello World!` to the center of the VGA text buffer
-    let buffer_ptr = (0xb8000 + 1988) as *mut _;
-    unsafe { *buffer_ptr = hello_colored };
 
     loop {}
 }
