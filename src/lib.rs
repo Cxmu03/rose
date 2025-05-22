@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use core::fmt::Write;
 use core::panic::PanicInfo;
 
 use vga::*;
@@ -14,18 +15,8 @@ fn panic(_: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub extern "C" fn kernel_main() -> ! {
-    let mut vga_buffer = VGA_BUFFER_LOCK.write();
-    vga_buffer.clear();
+    VGA_BUFFER_LOCK.write().clear();
 
-    let message: &[u8] = b"Hello from Rose";
-
-    let row = (VGA_HEIGHT / 2) - 1;
-    let col = ((VGA_WIDTH - message.len()) / 2) - 1;
-
-    for (index, character) in message.iter().enumerate() {
-        let vga_char = VgaChar::new(*character, VgaColor::Blue, VgaColor::White);
-        *vga_buffer.get_mut(col + index, row) = vga_char;
-    }
-
+    println!("Hello from Rose");
     loop {}
 }

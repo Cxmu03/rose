@@ -1,12 +1,32 @@
-use core::cell::UnsafeCell;
-use core::slice::from_raw_parts;
+use core::fmt;
 use core::marker::PhantomData;
+use core::slice::from_raw_parts;
+use core::{cell::UnsafeCell, iter::empty};
 use spin::{lazy::Lazy, RwLock};
+
+macro_rules! print {
+    ($($arg: tt)*) => {
+        crate::vga::_print(format_args!($($arg)*));
+    }
+}
+
+macro_rules! println {
+    () => {
+        print!("\n");
+    };
+    ($($arg: tt)*) => {
+        crate::vga::print!("{}\n", format_args!($($arg)*));
+    }
+}
+
+pub(crate) use print;
+pub(crate) use println;
 
 pub const VGA_HEIGHT: usize = 25;
 pub const VGA_WIDTH: usize = 80;
 
 #[repr(u8)]
+#[derive(Clone, Copy)]
 pub enum VgaColor {
     Black = 0x0,
     Blue = 0x1,
@@ -34,40 +54,112 @@ pub struct VgaChar {
 }
 
 impl VgaChar {
-    pub const fn new(character: u8, background_color: VgaColor, foreground_color: VgaColor) -> Self {
+    pub const fn new(
+        character: char,
+        background_color: VgaColor,
+        foreground_color: VgaColor,
+    ) -> Self {
         let color = ((background_color as u8) << 4) | (foreground_color as u8);
+        let character = character as u8;
 
-        Self {
-            color,
-            character,
-        }       
+        Self { color, character }
+    }
+
+    pub const fn empty() -> Self {
+        Self::new(' ', VgaColor::Black, VgaColor::White)
     }
 }
 
-pub static VGA_BUFFER_LOCK: Lazy<RwLock<VgaBufferHandle>> = Lazy::new(|| RwLock::new(VgaBufferHandle(PhantomData)));
+pub static VGA_BUFFER_LOCK: Lazy<RwLock<VgaWriter>> = Lazy::new(|| {
+    RwLock::new(VgaWriter {
+        col_position: 0,
+        foreground_color: VgaColor::White,
+        background_color: VgaColor::Black,
+    })
+});
 
-pub struct VgaBufferHandle(PhantomData<()>);
+pub struct VgaWriter {
+    col_position: usize,
+    pub foreground_color: VgaColor,
+    pub background_color: VgaColor,
+}
 
-impl VgaBufferHandle {
+impl VgaWriter {
     const VGA_BASE: usize = 0xb8000;
 
+    fn get_slice(&self) -> &'static [VgaChar] {
+        unsafe {
+            core::slice::from_raw_parts(Self::VGA_BASE as *const VgaChar, VGA_WIDTH * VGA_HEIGHT)
+        }
+    }
+
+    fn get_slice_mut(&mut self) -> &'static mut [VgaChar] {
+        unsafe {
+            core::slice::from_raw_parts_mut(Self::VGA_BASE as *mut VgaChar, VGA_WIDTH * VGA_HEIGHT)
+        }
+    }
+
     pub fn get(&self, x: usize, y: usize) -> &VgaChar {
-        let vga_slice = unsafe { core::slice::from_raw_parts(Self::VGA_BASE as *const VgaChar, VGA_WIDTH * VGA_HEIGHT) };
+        let vga_slice = self.get_slice();
 
         &vga_slice[y * VGA_WIDTH + x]
     }
 
     pub fn get_mut(&mut self, x: usize, y: usize) -> &mut VgaChar {
-        let vga_slice = unsafe {core::slice::from_raw_parts_mut(Self::VGA_BASE as *mut VgaChar, VGA_WIDTH * VGA_HEIGHT)};
+        let vga_slice = self.get_slice_mut();
 
         &mut vga_slice[y * VGA_WIDTH + x]
     }
 
-    pub fn clear(&mut self) {
-        for y in 0..VGA_HEIGHT {
-            for x in 0..VGA_WIDTH {
-                *self.get_mut(x, y) = VgaChar::default();
-            }
+    fn new_line(&mut self) {
+        self.col_position = 0;
+        let vga_slice = self.get_slice_mut();
+
+        for y in 1..VGA_HEIGHT {
+            let previous_row_start = (y - 1) * VGA_WIDTH;
+            let row_start = y * VGA_WIDTH;
+            let row_end = row_start + VGA_WIDTH;
+            vga_slice.copy_within(row_start..row_end, previous_row_start);
+        }
+
+        let last_row_start = (VGA_HEIGHT - 1) * VGA_WIDTH;
+        let last_row_end = last_row_start + VGA_WIDTH;
+        vga_slice[last_row_start..last_row_end].fill(VgaChar::empty());
+    }
+
+    pub fn write_char(&mut self, c: char) {
+        if c == '\n' {
+            self.new_line();
+            return;
+        }
+
+        let vga_char = VgaChar::new(c, self.background_color, self.foreground_color);
+        *self.get_mut(self.col_position, VGA_HEIGHT - 1) = vga_char;
+        self.col_position += 1;
+
+        if self.col_position >= VGA_WIDTH {
+            self.new_line();
         }
     }
+
+    pub fn clear(&mut self) {
+        self.get_slice_mut().fill(VgaChar::empty());
+
+        self.col_position = 0;
+    }
+}
+
+impl fmt::Write for VgaWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        s.chars().for_each(|c| self.write_char(c));
+
+        Ok(())
+    }
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+
+    VGA_BUFFER_LOCK.write().write_fmt(args).unwrap();
 }
