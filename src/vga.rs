@@ -1,7 +1,4 @@
 use core::fmt;
-use core::marker::PhantomData;
-use core::slice::from_raw_parts;
-use core::{cell::UnsafeCell, iter::empty};
 use spin::{lazy::Lazy, RwLock};
 
 macro_rules! print {
