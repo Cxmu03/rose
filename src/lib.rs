@@ -14,7 +14,10 @@ fn panic(_: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub extern "C" fn kernel_main() -> ! {
-    VGA_BUFFER_LOCK.write().clear();
+    let mut vga_lock = VGA_BUFFER_LOCK.write();
+    vga_lock.clear();
+    vga_lock.foreground_color = VgaColor::Red;
+    drop(vga_lock);
 
     println!("Hello from Rose");
     loop {}

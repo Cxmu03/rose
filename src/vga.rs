@@ -19,7 +19,7 @@ macro_rules! println {
 pub(crate) use print;
 pub(crate) use println;
 
-pub const VGA_HEIGHT: usize = 25;
+pub const VGA_HEIGHT: usize = 26;
 pub const VGA_WIDTH: usize = 80;
 
 #[repr(u8)]
@@ -64,6 +64,10 @@ impl VgaChar {
 
     pub const fn empty() -> Self {
         Self::new(' ', VgaColor::Black, VgaColor::White)
+    }
+
+    pub const fn empty_with_color(background_color: VgaColor, foreground_color: VgaColor) -> Self {
+        Self::new(' ', background_color, foreground_color)
     }
 }
 
@@ -140,7 +144,7 @@ impl VgaWriter {
     }
 
     pub fn clear(&mut self) {
-        self.get_slice_mut().fill(VgaChar::empty());
+        self.get_slice_mut().fill(VgaChar::empty_with_color(self.background_color, self.foreground_color));
 
         self.col_position = 0;
     }
