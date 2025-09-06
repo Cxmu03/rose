@@ -6,6 +6,7 @@ use core::panic::PanicInfo;
 use vga::*;
 
 mod vga;
+mod arch;
 
 #[panic_handler]
 fn panic(_: &PanicInfo) -> ! {
