@@ -1,5 +1,5 @@
-mod idt;
-mod segment;
+pub(crate) mod idt;
+pub(crate) mod segment;
 
 pub(crate) enum PrivilegeLevel {
     Ring0 = 0b00,

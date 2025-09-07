@@ -66,16 +66,16 @@ impl IdtEntryOptions {
     }
 
     pub(crate) fn set_present(&mut self, present: bool) {
-        self.0 = (self.0 & 0x8000) | ((present as u16) << 15);
+        self.0 = (self.0 & !0x8000) | ((present as u16) << 15);
     }
 
     pub(crate) fn set_interrupts_enabled(&mut self, enabled: bool) {
-        self.0 = (self.0 & (1 << 7)) | ((enabled as u16) << 7);
+        self.0 = (self.0 & !(1 << 8)) | ((!enabled as u16) << 8);
     }
 
     pub(crate) fn set_privilege_level(&mut self, privilege_level: u8) {
         assert!(privilege_level < 4);
 
-        self.0 = (self.0 & (0b11 << 12)) | ((privilege_level as u16) << 12);
+        self.0 = (self.0 & !(0b11 << 13)) | ((privilege_level as u16) << 13);
     }
 }
