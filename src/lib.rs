@@ -27,8 +27,8 @@ pub extern "C" fn kernel_main() -> ! {
     println!("Hello from Rose");
 
     unsafe {
-        asm!("mov dx, 0");
-        asm!("div dx");
+        asm!("mov dx, 0", out("dx") _);
+        asm!("div dx", out("ax") _);
     }
 
     loop {}
